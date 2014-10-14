@@ -13,7 +13,7 @@ Usage
 --calendarid=x
 	Calendar ID to import event (require)
 
---usage ou --help
+--usage or --help
 	Display this message
 
 --quiet
