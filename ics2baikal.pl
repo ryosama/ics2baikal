@@ -8,8 +8,8 @@ use Getopt::Long;
 use Time::Local;
 use DBI qw(:sql_types); #sqlite
 
-my ($ics,$sqlite,$calendarid,$help,$quiet);
-GetOptions('ics:s'=>\$ics, 'sqlite:s'=>\$sqlite, 'calendarid:i'=>\$calendarid, 'help|usage!'=>\$help, 'quiet!'=>\$quiet) ;
+my ($ics,$sqlite,$calendarid,$dry_run,$help,$quiet);
+GetOptions('ics:s'=>\$ics, 'sqlite:s'=>\$sqlite, 'calendarid:i'=>\$calendarid, 'dry-run!'=>\$dry_run, 'help|usage!'=>\$help, 'quiet!'=>\$quiet) ;
 die <<EOT if ($help || length($ics)<=0 || length($sqlite)<=0 || $calendarid<=0);
 Parameters :
 --ics=xxx
@@ -21,6 +21,9 @@ Parameters :
 --calendarid=x
 	Calendar ID to import event (require)
 
+--dry-run
+	Only do a simulation
+
 --usage or --help
 	Display this message
 
@@ -28,14 +31,18 @@ Parameters :
 	No output
 EOT
 
-die "Unable to find ics file '$ics'" if !-e $ics;
+die "Unable to find ics file '$ics'" unless -e $ics;
 open(ICS,"<$ics") or die "Unable to open ics file '$ics' ($!)";
 my $content = join('',<ICS>);
 close(ICS);
 
-die "Unable to find sqlite DB '$sqlite'" if !-e $sqlite;
+die "Unable to find sqlite DB '$sqlite'" unless -e $sqlite;
 my $sqlite = DBI->connect("dbi:SQLite:$sqlite",'','',{ RaiseError => 0, AutoCommit => 0 }) or die("Unable to open SQLite DB '$sqlite'");
 my $sql_col = "INSERT INTO calendarobjects (calendardata,uri,calendarid,lastmodified,etag,size,componenttype,firstoccurence,lastoccurence) VALUES ";
+
+if ($dry_run) {
+	print "I'm running in dry-run mode, I won't do anything\n" unless $quiet;
+}
 
 while($content =~ /(BEGIN:VEVENT.+?END:VEVENT)/gis) { # match an event
 	my $event = "BEGIN:VCALENDAR\n$1\nEND:VCALENDAR";
@@ -43,11 +50,11 @@ while($content =~ /(BEGIN:VEVENT.+?END:VEVENT)/gis) { # match an event
 	my ($lastmodified) 	= ($event =~ m/^LAST-MODIFIED:(.+)$/im);
 	my ($eventstart) 	= ($event =~ m/^DTSTART:(.+)$/im);
 	my ($eventend) 		= ($event =~ m/^DTEND:(.+)$/im);
-	print "EVENT detected : $uid\n" if !$quiet;
+	print "EVENT detected : $uid\n" unless $quiet;
 
 	my $sql  = 	$sql_col.
 				"('".quotify($event)."','$uid','$calendarid','".icaldate2epoch($lastmodified)."','".md5_hex($event)."','".length($event)."','VEVENT','".icaldate2epoch($eventstart)."','".icaldate2epoch($eventend)."');";
-	$sqlite->do($sql); # record event in database
+	$sqlite->do($sql) unless $dry_run; # record event in database
 }
 
 $sqlite->commit;
