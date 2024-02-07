@@ -48,8 +48,10 @@ while($content =~ /(BEGIN:VEVENT.+?END:VEVENT)/gis) { # match an event
 	my $event = "BEGIN:VCALENDAR\n$1\nEND:VCALENDAR";
 	my ($uid) = ($event =~ m/^UID:(.+)$/im);
 	my ($lastmodified) 	= ($event =~ m/^LAST-MODIFIED:(.+)$/im);
-	my ($eventstart) 	= ($event =~ m/^DTSTART:(.+)$/im);
-	my ($eventend) 		= ($event =~ m/^DTEND:(.+)$/im);
+	my $res 	= ($event =~ m/^DTSTART(:|;TZID=|;VALUE=DATE:)(.+)$/im);
+	my ($eventstart) 	= $2;
+	my $res 	= ($event =~ m/^DTEND(:|;TZID=|;VALUE=DATE:)(.+)$/im);
+	my ($eventend) 	= $2;
 	print "EVENT detected : $uid\n" unless $quiet;
 
 	my $sql  = 	$sql_col.
